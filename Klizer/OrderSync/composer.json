@@ -1,0 +1,19 @@
+{
+  "name": "klizer/module-order-sync",
+  "description": "Sends order, inventory, and customer data to the shipment-failure prediction agent after an order is placed.",
+  "type": "magento2-module",
+  "version": "1.0.0",
+  "license": "proprietary",
+  "require": {
+    "php": "~7.4.0||~8.1.0",
+    "magento/framework": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Klizer\\OrderSync\\": ""
+    },
+    "files": [
+      "registration.php"
+    ]
+  }
+}

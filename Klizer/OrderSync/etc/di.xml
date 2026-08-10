@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Dedicated log file so prediction-API issues never mix into system.log
+         and are easy to find without affecting order placement itself. -->
+    <virtualType name="Klizer\OrderSync\Logger\Handler" type="Magento\Framework\Logger\Handler\Base">
+        <arguments>
+            <argument name="fileName" xsi:type="string">var/log/klizer_ordersync.log</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="Klizer\OrderSync\Logger\Logger" type="Magento\Framework\Logger\Monolog">
+        <arguments>
+            <argument name="name" xsi:type="string">klizerOrderSync</argument>
+            <argument name="handlers" xsi:type="array">
+                <item name="system" xsi:type="object">Klizer\OrderSync\Logger\Handler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <type name="Klizer\OrderSync\Model\ApiClient">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Observer\OrderPlaceAfter">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Observer\ShipmentSaveAfter">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Observer\CreditmemoSaveAfter">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Observer\OrderStatusChange">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Plugin\SourceItemsSavePlugin">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+    <type name="Klizer\OrderSync\Cron\RescoreOpenOrders">
+        <arguments>
+            <argument name="logger" xsi:type="object">Klizer\OrderSync\Logger\Logger</argument>
+        </arguments>
+    </type>
+
+    <!-- No classic event is dispatched for MSI source item saves — plugin
+         onto the interface instead (see SourceItemsSavePlugin's docblock). -->
+    <type name="Magento\InventoryApi\Api\SourceItemsSaveInterface">
+        <plugin name="klizer_ordersync_source_items_save" type="Klizer\OrderSync\Plugin\SourceItemsSavePlugin" sortOrder="10" />
+    </type>
+
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="klizer_ordersync_backfill_volume_history" xsi:type="object">Klizer\OrderSync\Console\Command\BackfillVolumeHistory</item>
+            </argument>
+        </arguments>
+    </type>
+</config>

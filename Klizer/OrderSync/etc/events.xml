@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- sales_order_place_after fires inside Order::place(), before the
+         order is persisted (entity_id is not yet assigned there).
+         checkout_submit_all_after fires after QuoteManagement::submit()
+         has saved the order, so entity_id is guaranteed to be set. -->
+    <event name="checkout_submit_all_after">
+        <observer name="klizer_ordersync_order_place_after" instance="Klizer\OrderSync\Observer\OrderPlaceAfter" />
+    </event>
+
+    <event name="sales_order_shipment_save_after">
+        <observer name="klizer_ordersync_shipment_save_after" instance="Klizer\OrderSync\Observer\ShipmentSaveAfter" />
+    </event>
+
+    <event name="sales_order_creditmemo_save_after">
+        <observer name="klizer_ordersync_creditmemo_save_after" instance="Klizer\OrderSync\Observer\CreditmemoSaveAfter" />
+    </event>
+
+    <event name="sales_order_save_after">
+        <observer name="klizer_ordersync_order_status_change" instance="Klizer\OrderSync\Observer\OrderStatusChange" />
+    </event>
+</config>
