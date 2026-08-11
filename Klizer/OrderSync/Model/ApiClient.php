@@ -37,11 +37,19 @@ class ApiClient
     {
         $orderId = $payload['orders'][0]['order_id'] ?? null;
 
-        if ($orderId !== null && $this->deduplicator->shouldSkipSync((int) $orderId)) {
-            $this->logger->info(
-                "[Klizer_OrderSync] Order {$orderId}: skipping duplicate sync within this request."
-            );
-            return null;
+        if ($orderId !== null) {
+            // Fingerprint the payload rather than just the order_id — see
+            // SyncDeduplicator's docblock for why a second sync for the
+            // same order in one request can carry genuinely different
+            // data (and must not be dropped as if it were identical).
+            $fingerprint = md5(json_encode($payload));
+
+            if ($this->deduplicator->shouldSkipSync((int) $orderId, $fingerprint)) {
+                $this->logger->info(
+                    "[Klizer_OrderSync] Order {$orderId}: skipping duplicate sync (identical payload) within this request."
+                );
+                return null;
+            }
         }
 
         $apiUrl = $this->config->getApiUrl();

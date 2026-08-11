@@ -15,30 +15,49 @@ namespace Klizer\OrderSync\Model;
  * so it lives exactly as long as the request it's deduping against —
  * nothing to reset between requests.
  *
- * Resolve and sync are tracked separately because they're not
- * interchangeable: a resolve must never be silently dropped just because
- * a lower-priority re-score happened to reach ApiClient first for the
- * same order in the same request, but a re-score after a resolve (or
- * after another re-score) for that order is genuinely redundant.
+ * Resolve and sync are tracked separately, and deliberately don't block
+ * each other: they're not interchangeable. resolveOrder() only flips
+ * resolved_at — it never touches order_status/order_state/
+ * shipment_failure_probability. Only sendOrderData() carries that fresh
+ * data. A resolve firing first in a request (e.g. ShipmentSaveAfter)
+ * must never suppress a same-order sync that fires after it (e.g.
+ * SourceItemsSavePlugin re-scoring the shipped SKU) — that sync is what
+ * actually gets the order's stored order_status/features off their
+ * pre-shipment values.
+ *
+ * A same-order sync repeating within one request is deduped by payload
+ * fingerprint, not just order_id: observed live that MSI's
+ * SourceItemsSaveInterface::execute() can be invoked twice for one admin
+ * inventory save, and Magento's own legacy cataloginventory_stock_item
+ * sync (which OrderDataCollector::getInventory() reads is_in_stock from)
+ * only catches up between those two calls — so the second call carries
+ * a genuinely different is_in_stock/salable_qty than the first, not a
+ * literal repeat. Blocking it by order_id alone left the order's stored
+ * row pinned to the stale pre-update inventory state. Comparing payload
+ * fingerprints keeps true duplicates (identical data, e.g. the
+ * shipment/inventory-deduction overlap above) deduped while still
+ * letting a same-order sync through whenever the data actually changed.
  */
 class SyncDeduplicator
 {
     private array $resolvedOrderIds = [];
-    private array $syncedOrderIds = [];
+    private array $syncedFingerprints = [];
 
     /**
      * Whether a plain re-sync (sendOrderData) for this order should be
-     * skipped — true if it was already resolved OR already synced
-     * earlier in this same request. Marks it synced as a side effect
+     * skipped — true only if this exact payload was already sent for
+     * this order earlier in this same request (a prior resolve does not
+     * count — see class docblock; a prior sync with *different* data
+     * does not count either). Records the fingerprint as a side effect
      * when returning false, so the *next* call sees it as handled.
      */
-    public function shouldSkipSync(int $orderId): bool
+    public function shouldSkipSync(int $orderId, string $payloadFingerprint): bool
     {
-        if (isset($this->resolvedOrderIds[$orderId]) || isset($this->syncedOrderIds[$orderId])) {
+        if (($this->syncedFingerprints[$orderId] ?? null) === $payloadFingerprint) {
             return true;
         }
 
-        $this->syncedOrderIds[$orderId] = true;
+        $this->syncedFingerprints[$orderId] = $payloadFingerprint;
         return false;
     }
 
